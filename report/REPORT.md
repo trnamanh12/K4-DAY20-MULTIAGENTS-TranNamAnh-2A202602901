@@ -8,9 +8,9 @@
 |---|---|---|
 | | | |
 
-- Nhà cung cấp và mô hình (`LAB_MODEL`, không ghi khóa API), nhiệt độ (`LAB_TEMPERATURE`), `recursion_limit`:
-- Phiên bản Deep Agents (`pip show deepagents`), hệ điều hành, chạy trực tiếp hay trong Docker:
-- Số lần chạy tác vụ đã dùng / ngân sách:
+- Nhà cung cấp và mô hình (`LAB_MODEL`, không ghi khóa API), nhiệt độ (`LAB_TEMPERATURE`), `recursion_limit`: `google_genai:gemini-3.5-flash-lite`, nhiệt độ 0; `recursion_limit=60` cho lần chạy đầu, dự kiến dùng 40 cho các lần sau vì lần này tốn 210,111 token.
+- Phiên bản Deep Agents (`pip show deepagents`), hệ điều hành, chạy trực tiếp hay trong Docker: `deepagents 0.7.21`, Python 3.14.7, Linux, chạy trực tiếp.
+- Số lần chạy tác vụ đã dùng / ngân sách: 1 lần chạy thật; ngân sách tiền/tokens do nhà cung cấp đặt, không đọc được từ kho.
 - Commit của tag `freeze`:
 
 ## 2. Giả thuyết (commit TRƯỚC tag `freeze`, Phần 4.0)
