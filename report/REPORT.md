@@ -10,8 +10,8 @@
 
 - Nhà cung cấp và mô hình (`LAB_MODEL`, không ghi khóa API), nhiệt độ (`LAB_TEMPERATURE`), `recursion_limit`: `google_genai:gemini-3.5-flash-lite`, nhiệt độ 0; `recursion_limit=60` cho data/code và 40 cho logs. Lần chạy code đầu tiên bị giới hạn ở 40 và được chạy lại ở 60.
 - Phiên bản Deep Agents (`pip show deepagents`), hệ điều hành, chạy trực tiếp hay trong Docker: `deepagents 0.7.21`, Python 3.14.7, Linux, chạy trực tiếp.
-- Số lần chạy tác vụ đã dùng / ngân sách: hiện có 9 bản ghi cho ba điều kiện learning, ngoài ra có các lần chạy lại và một lần subagents bị ngắt; có lỗi giới hạn đệ quy và quota; ngân sách tiền/tokens do nhà cung cấp đặt, không đọc được từ kho.
-- Commit của tag `freeze`:
+- Số lần chạy tác vụ đã dùng / ngân sách: có 15 bản ghi (baseline 6, subagents 6, skills-auto learning 3), ngoài ra có các lần chạy lại và một lần subagents bị ngắt; có lỗi giới hạn đệ quy và quota; ngân sách tiền/tokens do nhà cung cấp đặt, không đọc được từ kho.
+- Commit của tag `freeze`: `2157cc3`.
 
 ## 2. Giả thuyết (commit TRƯỚC tag `freeze`, Phần 4.0)
 
@@ -66,37 +66,59 @@ Nhận xét: cả 9 thất bại thuộc nhóm E: tác tử hoàn thành phần 
 
 ## 7. Kết quả so sánh (Phần 4.3, 4.4)
 
-> Dán nội dung `report/table.md` và kết quả `python scripts/check_breakdown.py`. Nêu các lần chạy có `error` hoặc `skills_modified = true` (nếu có) và cách xử lý.
+`report/table.md` hiện chỉ có `baseline` và `subagents`; `skills-auto` chưa có kết quả eval do quota API. Các ô 0/9 và 0/10 của `subagents` là lỗi quota ghi vào `error`, không phải điểm tác tử.
 
 ```text
-(dán bảng ở đây)
+| Task | baseline | subagents |
+|---|---|---|
+| code-learn | 7/10 | 7/10 |
+| data-learn | 5/8 | 4/8 |
+| logs-learn | 6/9 | 6/9 |
+| code-eval | 7/11 | 7/11 |
+| data-eval | 5/9 | 0/9 |
+| logs-eval | 6/10 | 0/10 |
+| **Mean score - learning tasks** | 0.66 | 0.62 |
+| **Mean score - evaluation tasks** | 0.60 | 0.21 |
+| **Mean tokens per run** | 132,402 | 269,644 |
+| **Runs that read a skill** | 0/6 | 0/6 |
 ```
+
+```text
+condition     role    technical  house rules  mean tokens  read a skill
+baseline      eval     18/18         0/12         105,646      0/3
+baseline      learn    18/18         0/9          159,159      0/3
+subagents     eval      7/18         0/12         104,147      0/3
+subagents     learn    17/18         0/9          435,142      0/3
+```
+
+Không có kết quả `skills-auto` chính thức sau freeze; các lần chạy phát triển được lưu ở `results/skills-auto-dev/`. Hai run eval của `subagents` (`data-eval`, `logs-eval`) có `GoogleRateLimitError` 429 và điểm 0 do lỗi hạ tầng. Không run nào ghi `skills_modified=true`.
 
 ## 8. Phân tích
 
 > Trả lời từng câu bằng số liệu từ mục 7 và bằng chứng từ vết. Kết quả âm hoặc không có khác biệt vẫn hợp lệ nếu được phân tích tốt.
 
-1. So với `baseline`, điều kiện nào cải thiện điểm tác vụ **học**? Điều kiện nào cải thiện điểm tác vụ **đánh giá**? Có điều kiện nào cải thiện tác vụ học nhưng không cải thiện tác vụ đánh giá? Nếu có, đó là dấu hiệu gì?
-2. Tách điểm thành check kỹ thuật và check quy ước (`rule_`). Skill do curator sinh giúp nhóm check nào? Check quy ước **mới** của tác vụ đánh giá có được skill giúp không, và vì sao?
-3. Dựa vào vết và `skills_read`, giải thích một check mà skill giúp đạt và một check mà skill không giúp (skill chưa được đọc, đọc nhưng không làm theo, skill thiếu hoặc sai).
-4. Chi phí: so sánh số token trung bình giữa các điều kiện. Điều kiện nào có hiệu quả tốt nhất theo điểm trên mỗi token? Đa tác tử có đáng chi phí trong thí nghiệm này không?
-5. Có dấu hiệu rò rỉ dữ liệu hoặc quá khớp nào trong skill sinh ra không? Nhóm đã phòng tránh như thế nào?
-6. Nhiễu: so sánh điểm tác vụ học của cùng bộ skill ở Phần 3.4 (đã sao lưu) và sau đóng băng. Chênh lệch bao nhiêu? Nó cho biết điều gì về độ tin cậy của các chênh lệch trong bảng ở mục 7?
+1. Trên learning, baseline đạt 0.66 trung bình còn subagents đạt 0.62. Trên eval, baseline đạt 0.60; subagents chỉ có một run hợp lệ (`code-eval` 7/11, bằng baseline), hai run còn lại lỗi quota. Chưa đủ dữ liệu để so sánh eval đầy đủ hoặc kết luận điều kiện tốt nhất.
+2. Baseline learning đạt 18/18 check kỹ thuật nhưng 0/9 check quy ước. Skills-auto learning đạt 18/18 kỹ thuật và 2/9 quy ước; mức tăng quy ước nằm ở `logs-learn`, nơi điểm tăng từ 6/9 lên 8/9. Chưa có eval skills-auto nên chưa xác định được tác dụng trên quy ước mới.
+3. Trace `logs-learn` cho thấy skill log được đọc (`skills_read=1`); lỗi giảm từ ba quy ước baseline xuống còn `rule_schema_header`, điều mà skill không hướng dẫn. Ở `data-learn`, cả ba skill được đọc nhưng điểm vẫn 5/8 và agent không tạo `clean.csv` hoặc metadata; đọc skill không đảm bảo làm theo đầy đủ.
+4. Learning-only mean tokens: baseline 159,159; subagents 435,142; skills-auto 210,531. Subagents dùng khoảng 2.7 lần baseline nhưng điểm trung bình thấp hơn; skills-auto tốn hơn baseline nhưng cải thiện một phần check quy ước trong logs. Điểm trên mỗi token chưa thể so sánh đầy đủ vì một run skills-auto lỗi và thiếu eval skills-auto; bằng chứng hiện có không ủng hộ chi phí subagents.
+5. Ba skill không chứa marker hoặc tên tệp riêng của tác vụ eval; curator chỉ nạp run có `role=learn`, validator từ chối marker eval, và skills đã đóng băng trước khi eval. Skill code vẫn gần với quy ước của tác vụ học nên nguy cơ quá khớp còn tồn tại.
+6. Learning results của skills-auto được sao lưu ở `results/skills-auto-dev/`, nhưng chưa chạy lại sau freeze vì quota cạn. Chưa tính được chênh lệch nhiễu của cùng bộ skill.
 
 ## 9. Hạn chế và tính hợp lệ
 
 > Nêu ít nhất 3 hạn chế và ảnh hưởng của từng hạn chế đến kết luận (ví dụ: chỉ 3 tác vụ mỗi vai trò, mỗi cấu hình chạy một lần, nhiễu của mô hình, tác vụ do giảng viên thiết kế sẵn quy ước, chỉ một mô hình).
 
-1.
-2.
-3.
+1. Mỗi vai trò chỉ có ba tác vụ và mỗi cấu hình chạy một lần; kết quả nhạy với dữ liệu cụ thể và không cho phép ước lượng ổn định biến thiên.
+2. Chỉ dùng một mô hình Gemini; tool use, tốc độ và quota nhà cung cấp giới hạn khả năng khái quát. Hai eval subagents thất bại do quota, không phải năng lực tác tử.
+3. `recursion_limit` không đồng nhất giữa mọi lần chạy (40 hoặc 60); một số run chạm GraphRecursionError, nên so sánh điểm/token bị ảnh hưởng bởi giới hạn chạy.
+4. Chưa có eval skills-auto chính thức và chỉ một trong ba eval subagents hợp lệ; giả thuyết chính về chuyển giao skill chưa được kiểm định.
 
 ## 10. Kết luận
 
-> Tối đa 5 câu. Chỉ khẳng định điều số liệu hỗ trợ. Nêu một đề xuất cải tiến tiếp theo.
+Các lần chạy learning cho thấy baseline làm tốt check kỹ thuật nhưng bỏ sót nhiều quy ước đầu ra. Skill log được đọc và đi kèm mức tăng 2 check ở `logs-learn`, nhưng chưa đủ để khẳng định hiệu quả tổng quát. Subagents tăng mạnh chi phí token mà điểm learning không tăng. Chưa thể kết luận về eval skills-auto vì quota miễn phí 500 request/ngày đã hết; bước tiếp theo là chạy đủ eval bằng provider có quota rồi cập nhật bảng và phân tích.
 
 ## Phụ lục
 
-- Lệnh đã chạy (theo thứ tự):
+- Lệnh đã chạy (theo thứ tự): `pytest tests/test_01_provided.py`; `pytest tests/test_02_agent.py -k subagents`; `pytest tests/test_02_agent.py`; `pytest tests/test_03_runner.py`; `pytest tests/test_04_curator.py`; `python scripts/tour.py`; `python -m lab.runner --condition baseline --tasks learn`; `python -m lab.runner --condition subagents --tasks learn`; `python -m lab.curator`; `python -m lab.runner --condition skills-auto --tasks learn`; commit `hypotheses`; tag `freeze`; `python -m lab.runner --condition baseline --tasks eval`; `python -m lab.runner --condition subagents --tasks eval`; `python scripts/verify_freeze.py`; `python -m lab.compare`; `python scripts/check_breakdown.py`.
 - Thử thách mở rộng (nếu có): hướng chọn, kết quả, nhận xét.
-- Ghi chú khác:
+- Ghi chú khác: Gemini API trả `429 RESOURCE_EXHAUSTED`, giới hạn miễn phí 500 requests/ngày, retry estimate hơn 13 giờ. Do đó `results/skills-auto/` chưa có run chính thức; hai run subagents eval ghi lỗi hạ tầng. Các run skills-auto/code bị recursion/quota ghi trong JSON và không được diễn giải như kết quả model hợp lệ.
