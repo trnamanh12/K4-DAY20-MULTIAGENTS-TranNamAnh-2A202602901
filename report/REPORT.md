@@ -8,9 +8,9 @@
 |---|---|---|
 | | | |
 
-- Nhà cung cấp và mô hình (`LAB_MODEL`, không ghi khóa API), nhiệt độ (`LAB_TEMPERATURE`), `recursion_limit`: `google_genai:gemini-3.5-flash-lite`, nhiệt độ 0; `recursion_limit=60` cho lần chạy đầu, dự kiến dùng 40 cho các lần sau vì lần này tốn 210,111 token.
+- Nhà cung cấp và mô hình (`LAB_MODEL`, không ghi khóa API), nhiệt độ (`LAB_TEMPERATURE`), `recursion_limit`: `google_genai:gemini-3.5-flash-lite`, nhiệt độ 0; `recursion_limit=60` cho data/code và 40 cho logs. Lần chạy code đầu tiên bị giới hạn ở 40 và được chạy lại ở 60.
 - Phiên bản Deep Agents (`pip show deepagents`), hệ điều hành, chạy trực tiếp hay trong Docker: `deepagents 0.7.21`, Python 3.14.7, Linux, chạy trực tiếp.
-- Số lần chạy tác vụ đã dùng / ngân sách: 1 lần chạy thật; ngân sách tiền/tokens do nhà cung cấp đặt, không đọc được từ kho.
+- Số lần chạy tác vụ đã dùng / ngân sách: 3 lần chạy thật; ngân sách tiền/tokens do nhà cung cấp đặt, không đọc được từ kho.
 - Commit của tag `freeze`:
 
 ## 2. Giả thuyết (commit TRƯỚC tag `freeze`, Phần 4.0)
@@ -33,9 +33,17 @@
 
 | Tác vụ | Check thất bại | Nhóm lỗi (A-G) | Bằng chứng (trích ngắn từ `detail` hoặc vết) |
 |---|---|---|---|
-| | | | |
+| code-learn | rule_type_hints | E | `RULE: every public function ... has type annotations` |
+| code-learn | rule_regression_tests | E | `RULE: add tests/test_regressions.py ... (at least 3)` |
+| code-learn | rule_changelog | E | `RULE: record each fix in CHANGELOG.md ... (at least 3 bullets)` |
+| data-learn | rule_money_in_cents | E | `RULE: money values in answer.json are integer cents` |
+| data-learn | rule_meta_block | E | `RULE: answer.json has an object meta` with source, rows_in, rows_used |
+| data-learn | rule_clean_csv | E | `RULE: write workspace/clean.csv` with specified columns, UTC timestamps, canonical regions, integer cents |
+| logs-learn | rule_service_names | E | `RULE: service names ... lower-case with '-' replaced by '_'` |
+| logs-learn | rule_sorted_errors | E | `RULE: errors is sorted by service, then by timestamp_utc` |
+| logs-learn | rule_schema_header | E | `RULE: top-level object has schema_version 2 and generated_by log-triage` |
 
-Nhận xét: nhóm lỗi nào chiếm đa số? Skill có thể phòng ngừa nhóm đó không?
+Nhận xét: cả 9 thất bại thuộc nhóm E: tác tử hoàn thành phần việc chính nhưng bỏ sót quy ước chấm điểm bổ sung. Kết quả là bằng chứng cho việc báo cáo chi tiết các đầu ra khi kiểm tra yêu cầu; skill có thể nhắc tác tử đọc toàn bộ định dạng/README và kiểm tra các yêu cầu đầu ra phụ, nhưng không thể tự biết quy ước ẩn nếu chúng không được nêu.
 
 ## 5. Điều kiện `subagents` (Phần 2.3)
 
