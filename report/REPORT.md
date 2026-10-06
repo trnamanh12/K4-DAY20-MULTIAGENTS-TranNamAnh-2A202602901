@@ -10,16 +10,16 @@
 
 - Nhà cung cấp và mô hình (`LAB_MODEL`, không ghi khóa API), nhiệt độ (`LAB_TEMPERATURE`), `recursion_limit`: `google_genai:gemini-3.5-flash-lite`, nhiệt độ 0; `recursion_limit=60` cho data/code và 40 cho logs. Lần chạy code đầu tiên bị giới hạn ở 40 và được chạy lại ở 60.
 - Phiên bản Deep Agents (`pip show deepagents`), hệ điều hành, chạy trực tiếp hay trong Docker: `deepagents 0.7.21`, Python 3.14.7, Linux, chạy trực tiếp.
-- Số lần chạy tác vụ đã dùng / ngân sách: hiện có 9 bản ghi cho ba điều kiện learning, ngoài ra có các lần chạy lại; có lần chạy bị giới hạn đệ quy và một lỗi quota; ngân sách tiền/tokens do nhà cung cấp đặt, không đọc được từ kho.
+- Số lần chạy tác vụ đã dùng / ngân sách: hiện có 9 bản ghi cho ba điều kiện learning, ngoài ra có các lần chạy lại và một lần subagents bị ngắt; có lỗi giới hạn đệ quy và quota; ngân sách tiền/tokens do nhà cung cấp đặt, không đọc được từ kho.
 - Commit của tag `freeze`:
 
 ## 2. Giả thuyết (commit TRƯỚC tag `freeze`, Phần 4.0)
 
 > Dự đoán điều kiện nào đạt điểm cao nhất trên **tác vụ đánh giá** và vì sao. Nêu căn cứ từ phân loại lỗi (mục 4) và từ tài liệu tham khảo. Điền cả ba dòng; `verify_freeze.py` kiểm tra điều này.
 
-- H1 (subagents so với baseline):
-- H2 (skills-auto so với baseline):
-- H3 (tác vụ học so với tác vụ đánh giá):
+- H1 (subagents so với baseline): Trên eval, subagents sẽ không cải thiện ổn định điểm tổng so với baseline và sẽ dùng nhiều token hơn. Learning cho thấy điểm không tăng ở code/logs, giảm ở data, trong khi token trung bình tăng từ 159,159 lên 435,142.
+- H2 (skills-auto so với baseline): Skills-auto có thể giữ hoặc cải thiện một số check kỹ thuật có quy trình tương tự, nhưng không dự đoán sẽ giải quyết quy ước mới của eval vì skill được rút từ feedback learning. SkillsBench ghi nhận skill có thể giúp khi được biên soạn/chọn lọc, nhưng SkillEvolBench cho thấy skill tự sinh thường không chuyển bền vững sang deployment đã đóng băng; vì vậy dự đoán không có cải thiện tổng điểm nhất quán ([SkillsBench](https://arxiv.org/abs/2602.12670); [SkillEvolBench](https://arxiv.org/abs/2605.24117)).
+- H3 (tác vụ học so với tác vụ đánh giá): Điểm eval sẽ bằng hoặc thấp hơn learning, vì eval đổi dữ liệu và bổ sung một quy ước; quy trình kỹ thuật có thể chuyển giao nhưng quy ước không xuất hiện trong feedback learning thì không thể học trực tiếp. SkillEvolBench nêu rủi ro suy giảm khi đóng băng skill dưới chuyển dịch ngữ cảnh.
 
 ## 3. Làm quen Deep Agents (Phần 0.3)
 
