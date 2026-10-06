@@ -10,7 +10,7 @@
 
 - Nhà cung cấp và mô hình (`LAB_MODEL`, không ghi khóa API), nhiệt độ (`LAB_TEMPERATURE`), `recursion_limit`: `google_genai:gemini-3.5-flash-lite`, nhiệt độ 0; `recursion_limit=60` cho data/code và 40 cho logs. Lần chạy code đầu tiên bị giới hạn ở 40 và được chạy lại ở 60.
 - Phiên bản Deep Agents (`pip show deepagents`), hệ điều hành, chạy trực tiếp hay trong Docker: `deepagents 0.7.21`, Python 3.14.7, Linux, chạy trực tiếp.
-- Số lần chạy tác vụ đã dùng / ngân sách: hiện có 6 bản ghi tác vụ; có lần chạy bị giới hạn đệ quy và một lỗi quota; ngân sách tiền/tokens do nhà cung cấp đặt, không đọc được từ kho.
+- Số lần chạy tác vụ đã dùng / ngân sách: hiện có 9 bản ghi cho ba điều kiện learning, ngoài ra có các lần chạy lại; có lần chạy bị giới hạn đệ quy và một lỗi quota; ngân sách tiền/tokens do nhà cung cấp đặt, không đọc được từ kho.
 - Commit của tag `freeze`:
 
 ## 2. Giả thuyết (commit TRƯỚC tag `freeze`, Phần 4.0)
@@ -47,10 +47,10 @@ Nhận xét: cả 9 thất bại thuộc nhóm E: tác tử hoàn thành phần 
 
 ## 5. Điều kiện `subagents` (Phần 2.3)
 
-- Các subagent đã định nghĩa (tên, vai trò, lý do thiết kế):
-- `subagent_calls` ở từng tác vụ và nhận xét (kể cả trường hợp bằng 0):
-- Thông tin thiếu hoặc thừa khi giao việc (nếu có giao việc):
-- Ảnh hưởng đến token và thời gian:
+- Các subagent đã định nghĩa: `explorer` đọc đặc tả và báo cáo, `implementer` thực hiện thay đổi và chạy kiểm tra, `reviewer` kiểm tra độc lập; vai trò tách việc khảo sát, sửa và xác minh.
+- `subagent_calls`: `code-learn` 3 (explorer, general-purpose, implementer); `data-learn` 3 (general-purpose); `logs-learn` 0. Logs là trường hợp hợp lệ: trace cho thấy tác tử chính đã trực tiếp đọc log, chuyển đổi và kiểm tra kết quả.
+- Lời giao việc cho code nêu đường dẫn, mục tiêu, edge cases và yêu cầu kiểm tra; sau báo cáo implementer, tác tử chính chạy pytest. Lời giao việc cho data truyền quy tắc dedupe, ngày/múi giờ, giá trị thiếu và câu hỏi về convention, nhưng kết quả cuối vẫn 4/8; trace không cho thấy kiểm tra toàn bộ cấu trúc đầu ra trước khi kết thúc. Với logs không có giao việc để đánh giá.
+- `subagents` đạt `code-learn` 7/10 (21 tool calls, 256,674 tokens), `data-learn` 4/8 (11 tool calls, 955,735 tokens), `logs-learn` 6/9 (11 tool calls, 93,017 tokens). Trung bình 435,142 tokens so với 159,159 của baseline; chênh lệch chủ yếu do data-learn. Điểm không tăng so với baseline ở code/logs và giảm ở data.
 
 ## 6. Self-evolving: skill do curator sinh (Phần 3)
 
@@ -58,11 +58,11 @@ Nhận xét: cả 9 thất bại thuộc nhóm E: tác tử hoàn thành phần 
 
 | Skill | Tổng quát hay riêng cho tác vụ học? | Đúng hay sai (nêu chỗ sai nếu có) | Độ dài, `description` và `skills_read` ở Phần 3.4 |
 |---|---|---|---|
-| `enforce-type-hints-and-tests` | Khá riêng cho sửa mã Python; còn lặp lại quy ước CHANGELOG và regression test của tác vụ học | Đúng nhưng chưa nêu số lượng tối thiểu hay cấu trúc tiêu đề chính xác; không thấy hướng dẫn gây hại | 7 dòng; description kích hoạt khi viết/sửa Python; `skills_read=0` do lỗi quota trước khi agent bắt đầu |
+| `enforce-type-hints-and-tests` | Khá riêng cho sửa mã Python; còn lặp lại quy ước CHANGELOG và regression test của tác vụ học | Đúng nhưng chưa nêu số lượng tối thiểu hay cấu trúc tiêu đề chính xác; không thấy hướng dẫn gây hại | 7 dòng; description kích hoạt khi viết/sửa Python; `skills_read=0` trong bản ghi vì GraphRecursionError ở giới hạn 60 làm mất luồng message |
 | `format-financial-data-in-cents` | Tổng quát cho dữ liệu tiền tệ, kèm nhắc metadata và dữ liệu sạch | Chuyển tiền sang integer cents là đúng; nhắc định dạng metadata còn chung, chưa nêu kiểm tra múi giờ/trùng lặp | 6 dòng; description kích hoạt khi xử lý tài chính hoặc ghi tiền ra JSON/CSV; `skills_read=3` (đọc cả ba skill) |
 | `normalize-identifiers-and-sort-logs` | Tổng quát cho log/sự kiện có tên dịch vụ và timestamp | Quy tắc chuẩn hóa và sắp xếp đúng; thiếu chi tiết định dạng timestamp và các trường đầu ra | 6 dòng; description nêu rõ log/sự kiện; `skills_read=1` |
 
-Ở lần chạy skills-auto trên `data-learn`, agent đọc cả ba skill nhưng vẫn đạt 5/8 như baseline; trace cho thấy nó chỉ ghi `answer.json`, không tạo `clean.csv` hoặc metadata. Trên `logs-learn`, agent đọc skill log và đạt 8/9 so với baseline 6/9; check còn thiếu là `rule_schema_header`, điều mà skill không đề cập. Lần `code-learn` bị quota giới hạn trước khi có tool call nên không đo được tác dụng skill.
+Ở lần chạy skills-auto trên `data-learn`, agent đọc cả ba skill nhưng vẫn đạt 5/8 như baseline; trace cho thấy nó chỉ ghi `answer.json`, không tạo `clean.csv` hoặc metadata. Trên `logs-learn`, agent đọc skill log và đạt 8/9 so với baseline 6/9; check còn thiếu là `rule_schema_header`, điều mà skill không đề cập. Lần `code-learn` cuối cùng hit GraphRecursionError ở giới hạn 60 nên không có vết luồng chính để đo tác dụng skill.
 
 ## 7. Kết quả so sánh (Phần 4.3, 4.4)
 
