@@ -54,11 +54,13 @@ Nhận xét: cả 9 thất bại thuộc nhóm E: tác tử hoàn thành phần 
 
 ## 6. Self-evolving: skill do curator sinh (Phần 3)
 
-- Số lần chạy curator, số skill bị xóa và lý do:
+- Số lần chạy curator, số skill bị xóa và lý do: chạy một lần; sinh 3 skill hợp lệ; không xóa skill và không chạy lại.
 
 | Skill | Tổng quát hay riêng cho tác vụ học? | Đúng hay sai (nêu chỗ sai nếu có) | Độ dài, `description` và `skills_read` ở Phần 3.4 |
 |---|---|---|---|
-| | | | |
+| `enforce-type-hints-and-tests` | Khá riêng cho sửa mã Python; còn lặp lại quy ước CHANGELOG và regression test của tác vụ học | Đúng nhưng chưa nêu số lượng tối thiểu hay cấu trúc tiêu đề chính xác; không thấy hướng dẫn gây hại | 7 dòng; description kích hoạt khi viết/sửa Python; `skills_read` sẽ ghi sau Phần 3.4 |
+| `format-financial-data-in-cents` | Tổng quát cho dữ liệu tiền tệ, kèm nhắc metadata và dữ liệu sạch | Chuyển tiền sang integer cents là đúng; nhắc định dạng metadata còn chung, chưa nêu kiểm tra múi giờ/trùng lặp | 6 dòng; description kích hoạt khi xử lý tài chính hoặc ghi tiền ra JSON/CSV; `skills_read` sẽ ghi sau Phần 3.4 |
+| `normalize-identifiers-and-sort-logs` | Tổng quát cho log/sự kiện có tên dịch vụ và timestamp | Quy tắc chuẩn hóa và sắp xếp đúng; thiếu chi tiết định dạng timestamp và các trường đầu ra | 6 dòng; description nêu rõ log/sự kiện; `skills_read` sẽ ghi sau Phần 3.4 |
 
 ## 7. Kết quả so sánh (Phần 4.3, 4.4)
 
