@@ -8,7 +8,7 @@
 |---|---|---|
 | | | |
 
-- Nhà cung cấp và mô hình (`LAB_MODEL`, không ghi khóa API), nhiệt độ (`LAB_TEMPERATURE`), `recursion_limit`: `google_genai:gemini-3.5-flash-lite`, nhiệt độ 0; `recursion_limit=60` cho data/code và 40 cho logs. Lần chạy code đầu tiên bị giới hạn ở 40 và được chạy lại ở 60.
+- Nhà cung cấp và mô hình (`LAB_MODEL`, không ghi khóa API), nhiệt độ (`LAB_TEMPERATURE`), `recursion_limit`: `google_genai:gemini-3.5-flash-lite`, nhiệt độ 0; nhà cung cấp cảnh báo model dùng sampling cố định nên bỏ qua nhiệt độ. `recursion_limit=40` cho logs và một lần thử code; các run còn lại dùng 60.
 - Phiên bản Deep Agents (`pip show deepagents`), hệ điều hành, chạy trực tiếp hay trong Docker: `deepagents 0.7.21`, Python 3.14.7, Linux, chạy trực tiếp.
 - Số lần chạy tác vụ đã dùng / ngân sách: có 15 bản ghi (baseline 6, subagents 6, skills-auto learning 3), ngoài ra có các lần chạy lại và một lần subagents bị ngắt; có lỗi giới hạn đệ quy và quota; ngân sách tiền/tokens do nhà cung cấp đặt, không đọc được từ kho.
 - Commit của tag `freeze`: `2157cc3`.
@@ -93,6 +93,8 @@ subagents     learn    17/18         0/9          435,142      0/3
 
 Không có kết quả `skills-auto` chính thức sau freeze; các lần chạy phát triển được lưu ở `results/skills-auto-dev/`. Hai run eval của `subagents` (`data-eval`, `logs-eval`) có `GoogleRateLimitError` 429 và điểm 0 do lỗi hạ tầng. Không run nào ghi `skills_modified=true`.
 
+`verify_freeze.py` hiện in `checked 0 runs of skill conditions: OK`: nó xác nhận tag, commit giả thuyết và thư mục skill không đổi, nhưng chưa thể xác nhận bất kỳ lần chạy skills-auto chính thức nào.
+
 ## 8. Phân tích
 
 > Trả lời từng câu bằng số liệu từ mục 7 và bằng chứng từ vết. Kết quả âm hoặc không có khác biệt vẫn hợp lệ nếu được phân tích tốt.
@@ -119,6 +121,6 @@ Các lần chạy learning cho thấy baseline làm tốt check kỹ thuật nh�
 
 ## Phụ lục
 
-- Lệnh đã chạy (theo thứ tự): `pytest tests/test_01_provided.py`; `pytest tests/test_02_agent.py -k subagents`; `pytest tests/test_02_agent.py`; `pytest tests/test_03_runner.py`; `pytest tests/test_04_curator.py`; `python scripts/tour.py`; `python -m lab.runner --condition baseline --tasks learn`; `python -m lab.runner --condition subagents --tasks learn`; `python -m lab.curator`; `python -m lab.runner --condition skills-auto --tasks learn`; commit `hypotheses`; tag `freeze`; `python -m lab.runner --condition baseline --tasks eval`; `python -m lab.runner --condition subagents --tasks eval`; `python scripts/verify_freeze.py`; `python -m lab.compare`; `python scripts/check_breakdown.py`.
+- Lệnh đã chạy (theo thứ tự): `.venv/bin/pytest tests/test_01_provided.py`; `.venv/bin/pytest tests/test_02_agent.py -k subagents`; `.venv/bin/pytest tests/test_02_agent.py`; `.venv/bin/pytest tests/test_03_runner.py`; `.venv/bin/pytest tests/test_04_curator.py`; `.venv/bin/pytest`; `.venv/bin/python scripts/tour.py`; baseline learning (`data-learn`, sau đó `code-learn logs-learn`, code chạy lại); subagents learning (`--tasks learn --recursion-limit 60`); `.venv/bin/python -m lab.curator`; skills-auto learning (limit 40, sau đó code/data chạy lại ở 60); `git commit -m hypotheses`; `git commit --allow-empty -m 'freeze skills' && git tag freeze`; baseline eval (`--tasks eval --recursion-limit 60`); subagents eval (`--tasks eval --recursion-limit 60`); `.venv/bin/python scripts/verify_freeze.py`; `.venv/bin/python -m lab.compare > report/table.md`; `.venv/bin/python scripts/check_breakdown.py`.
 - Thử thách mở rộng (nếu có): hướng chọn, kết quả, nhận xét.
-- Ghi chú khác: Gemini API trả `429 RESOURCE_EXHAUSTED`, giới hạn miễn phí 500 requests/ngày, retry estimate hơn 13 giờ. Do đó `results/skills-auto/` chưa có run chính thức; hai run subagents eval ghi lỗi hạ tầng. Các run skills-auto/code bị recursion/quota ghi trong JSON và không được diễn giải như kết quả model hợp lệ.
+- Ghi chú khác: Gemini API trả `429 RESOURCE_EXHAUSTED`, giới hạn miễn phí 500 requests/ngày, retry estimate hơn 13 giờ. Do đó `results/skills-auto/` chưa có run chính thức; hai run subagents eval ghi lỗi hạ tầng. Các run skills-auto/code bị recursion/quota ghi trong JSON và không được diễn giải như kết quả model hợp lệ. Để tiếp tục sau khi đổi sang provider có quota hoặc quota reset: chạy `.venv/bin/python -m lab.runner --condition subagents --tasks data-eval logs-eval --recursion-limit 60`, rồi `.venv/bin/python -m lab.runner --condition skills-auto --tasks all --recursion-limit 60`; sau đó tạo lại bảng, chạy `verify_freeze.py` và `check_breakdown.py`, cập nhật phân tích, rồi commit.
