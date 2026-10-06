@@ -23,9 +23,9 @@
 
 ## 3. Làm quen Deep Agents (Phần 0.3)
 
-1.
-2.
-3.
+1. Công cụ gồm `ls`, `read_file`, `write_file`, `edit_file`, `delete`, `glob`, `grep`, `execute`, và `task`. `execute` chạy lệnh shell.
+2. `general-purpose` là subagent đa dụng có thể tìm tệp, nghiên cứu và làm nhiều bước. Mỗi lần gọi mặc định là stateless; nó chỉ nhận prompt được giao, không tự thấy toàn bộ lịch sử/ngữ cảnh của tác tử chính.
+3. Mô tả `task`: “Put full detail in the prompt and state exactly what it should return.” Mô tả `execute`: “Use absolute paths and avoid `cd` so the working directory stays stable.” System prompt mặc định in ra là rỗng (`''`).
 
 ## 4. Đường cơ sở và phân loại lỗi (Phần 2.2)
 
