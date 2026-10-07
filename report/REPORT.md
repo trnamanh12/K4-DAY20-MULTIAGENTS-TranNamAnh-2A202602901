@@ -6,12 +6,10 @@
 |---|---|---|
 | Trần Nam Anh | 2A202602901 | Hoàn thiện harness, chạy thí nghiệm và phân tích kết quả |
 
-Tên và mã sinh viên được ghi theo tên kho mã nguồn.
 
 - Mô hình: `google_genai:gemini-3.5-flash-lite`, với `LAB_TEMPERATURE=0`. SDK báo mô hình dùng thiết lập lấy mẫu cố định nên không áp dụng giá trị nhiệt độ.
 - Môi trường: Python 3.14.7, Linux và Deep Agents 0.7.21; chạy trong môi trường ảo `.venv`.
 - Giới hạn vòng lặp: baseline dùng 60 cho `data-learn` và các lần chạy code cuối cùng, 40 cho `logs-learn`; subagents dùng 60. Skills-auto phát triển dùng 40, sau đó chạy lại code và data ở 60. Sáu lần chạy skills-auto chính thức dùng 100 vì code trước đó chạm giới hạn 60.
-- Ngày 07/10/2026, API key được cập nhật, còn tên mô hình giữ nguyên. Các lần chạy sau được giới hạn ở 0,2 yêu cầu mô hình mỗi giây để tránh vướng giới hạn theo phút. Do tốc độ gửi yêu cầu khác nhau giữa các đợt, không so sánh thời gian chạy như thước đo hiệu năng.
 - Có 18 bản ghi chính thức (6 tác vụ trong mỗi điều kiện), 3 bản ghi skills-auto phát triển và một số lần thử lại. 18 lần chạy chính thức dùng tổng cộng 4.029.629 token. Thí nghiệm không đặt ngân sách tiền cụ thể và báo cáo không quy token ra chi phí API.
 - Commit giả thuyết: `3fd4309`; tag `freeze`: `2157cc3874549053cd9f067ae548e00a8d093457`. Nội dung trong `skills/auto/` giữ nguyên sau khi đóng băng.
 
