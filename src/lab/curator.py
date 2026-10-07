@@ -95,6 +95,7 @@ def curate_skills(results_dir="results", source_condition="baseline", out_dir=No
     for task, failed, trace in runs:
         checks = "\n".join(f"- {name}: {detail}" for name, detail in failed)
         sections.append(f"### {task}\nFailed checks:\n{checks}\n\nTrace (tail):\n{trace}")
+    feedback = "\n\n".join(sections)
     prompt = f"""You write SKILL.md files for an engineering and data-analysis agent.
 Use the learning-run failures below to infer general procedures that could help on NEW tasks.
 Write at most {max_skills} short skills. Do not include task IDs, task-specific filenames, answers, or numbers.
@@ -108,7 +109,7 @@ description: <when to use this skill>
 <instructions>
 === END ===
 
-Learning-run feedback and traces:\n\n{"\n\n".join(sections)}"""
+Learning-run feedback and traces:\n\n{feedback}"""
     reply = (model or make_model()).invoke(prompt).content
     if isinstance(reply, list):
         reply = "\n".join(
