@@ -1,126 +1,213 @@
 # Báo cáo Lab: Self evolving Agentic
 
-> Sao chép tệp này thành `report/REPORT.md` (đã làm ở Phần 0) và điền dần qua các Phần của lab. Xóa các dòng hướng dẫn dạng trích dẫn (bắt đầu bằng `>`). Văn phong kỹ thuật, ngắn gọn, mọi nhận định đi kèm số liệu hoặc bằng chứng. Trong buổi học: điền mục 1 đến 7 (bản nháp). Sau buổi học: hoàn thiện mục 8 đến 10.
-
-## 1. Thông tin nhóm và cấu hình
+## 1. Thông tin và cấu hình
 
 | Họ tên | Mã sinh viên | Phần đóng góp |
 |---|---|---|
-| | | |
+| Trần Nam Anh | 2A202602901 | Triển khai harness, chạy thí nghiệm và tổng hợp báo cáo với hỗ trợ của Codex |
 
-- Nhà cung cấp và mô hình (`LAB_MODEL`, không ghi khóa API), nhiệt độ (`LAB_TEMPERATURE`), `recursion_limit`: `google_genai:gemini-3.5-flash-lite`, nhiệt độ 0; nhà cung cấp cảnh báo model dùng sampling cố định nên bỏ qua nhiệt độ. `recursion_limit=40` cho logs và một lần thử code; các run còn lại dùng 60.
-- Phiên bản Deep Agents (`pip show deepagents`), hệ điều hành, chạy trực tiếp hay trong Docker: `deepagents 0.7.21`, Python 3.14.7, Linux, chạy trực tiếp.
-- Số lần chạy tác vụ đã dùng / ngân sách: có 15 bản ghi (baseline 6, subagents 6, skills-auto learning 3), ngoài ra có các lần chạy lại và một lần subagents bị ngắt; có lỗi giới hạn đệ quy và quota; ngân sách tiền/tokens do nhà cung cấp đặt, không đọc được từ kho.
-- Commit của tag `freeze`: `2157cc3`.
+Tên và mã sinh viên lấy từ tên kho mã nguồn.
 
-## 2. Giả thuyết (commit TRƯỚC tag `freeze`, Phần 4.0)
+- Mô hình: `google_genai:gemini-3.5-flash-lite`; `LAB_TEMPERATURE=0`. SDK cảnh báo mô hình dùng sampling cố định, bỏ qua tham số nhiệt độ.
+- Môi trường: Python 3.14.7, Linux, Deep Agents 0.7.21, chạy trực tiếp trong `.venv`.
+- Giới hạn: baseline data/code learning 60; baseline logs learning 40; subagents 60; skills-auto phát triển 40 rồi chạy lại code/data ở 60; sáu run skills-auto chính thức 100 để tránh cắt sớm sau khi code đã chạm 60.
+- Ngày 07/10/2026, thay API key và giữ nguyên tên mô hình. Các run tiếp tục được giới hạn 0.2 yêu cầu mô hình/giây, bucket 1, để tránh lỗi quota theo phút. Vì thay đổi pacing, không dùng thời gian chạy để khẳng định điều kiện nào nhanh hơn.
+- Có 18 bản ghi chính thức (6 tác vụ × 3 điều kiện), 3 bản ghi phát triển skills-auto và các lần thử lỗi/chạy lại. Tổng token của 18 run chính thức: 4,029,629; không đặt ngân sách tiền cố định và không quy đổi token thành giá API.
+- Commit giả thuyết: `3fd4309`; tag `freeze`: `2157cc3874549053cd9f067ae548e00a8d093457`. Skill không thay đổi sau tag.
 
-> Dự đoán điều kiện nào đạt điểm cao nhất trên **tác vụ đánh giá** và vì sao. Nêu căn cứ từ phân loại lỗi (mục 4) và từ tài liệu tham khảo. Điền cả ba dòng; `verify_freeze.py` kiểm tra điều này.
+## 2. Giả thuyết đã commit trước freeze
+
+Ba giả thuyết dưới đây giữ nguyên nội dung đã commit trước khi xem điểm eval.
 
 - H1 (subagents so với baseline): Trên eval, subagents sẽ không cải thiện ổn định điểm tổng so với baseline và sẽ dùng nhiều token hơn. Learning cho thấy điểm không tăng ở code/logs, giảm ở data, trong khi token trung bình tăng từ 159,159 lên 435,142.
 - H2 (skills-auto so với baseline): Skills-auto có thể giữ hoặc cải thiện một số check kỹ thuật có quy trình tương tự, nhưng không dự đoán sẽ giải quyết quy ước mới của eval vì skill được rút từ feedback learning. SkillsBench ghi nhận skill có thể giúp khi được biên soạn/chọn lọc, nhưng SkillEvolBench cho thấy skill tự sinh thường không chuyển bền vững sang deployment đã đóng băng; vì vậy dự đoán không có cải thiện tổng điểm nhất quán ([SkillsBench](https://arxiv.org/abs/2602.12670); [SkillEvolBench](https://arxiv.org/abs/2605.24117)).
 - H3 (tác vụ học so với tác vụ đánh giá): Điểm eval sẽ bằng hoặc thấp hơn learning, vì eval đổi dữ liệu và bổ sung một quy ước; quy trình kỹ thuật có thể chuyển giao nhưng quy ước không xuất hiện trong feedback learning thì không thể học trực tiếp. SkillEvolBench nêu rủi ro suy giảm khi đóng băng skill dưới chuyển dịch ngữ cảnh.
 
-## 3. Làm quen Deep Agents (Phần 0.3)
+## 3. Làm quen Deep Agents
 
-1. Công cụ gồm `ls`, `read_file`, `write_file`, `edit_file`, `delete`, `glob`, `grep`, `execute`, và `task`. `execute` chạy lệnh shell.
-2. `general-purpose` là subagent đa dụng có thể tìm tệp, nghiên cứu và làm nhiều bước. Mỗi lần gọi mặc định là stateless; nó chỉ nhận prompt được giao, không tự thấy toàn bộ lịch sử/ngữ cảnh của tác tử chính.
-3. Mô tả `task`: “Put full detail in the prompt and state exactly what it should return.” Mô tả `execute`: “Use absolute paths and avoid `cd` so the working directory stays stable.” System prompt mặc định in ra là rỗng (`''`).
+1. Tour in các công cụ `ls`, `read_file`, `write_file`, `edit_file`, `delete`, `glob`, `grep`, `execute`, `task`; `execute` chạy shell.
+2. `general-purpose` có thể khảo sát tệp và làm nhiệm vụ nhiều bước, nhận prompt được giao và trả một báo cáo cuối. Phiên gọi mặc định stateless, không tự nhận toàn bộ lịch sử tác tử chính. Baseline vẫn có subagent mặc định, nhưng các baseline run ở đây ghi `subagent_calls=0`.
+3. Mô tả `task`: “Put full detail in the prompt and state exactly what it should return.” Mô tả `execute`: “Use absolute paths and avoid `cd` so the working directory stays stable.” System prompt mặc định của tour là rỗng (`''`); harness của lab dùng `BASE_PROMPT` có quy ước đường dẫn tương đối `workspace/...` cho file tools và shell.
 
-## 4. Đường cơ sở và phân loại lỗi (Phần 2.2)
+Backend chỉ truyền PATH, HOME của sandbox và PYTHONDONTWRITEBYTECODE; không kế thừa môi trường chứa API key. Workspace được sao chép sang thư mục tạm và chấm trước khi xóa. Token cộng ở mọi lần gọi mô hình, gồm subagent; số tool call, delegation và skill read chỉ đo luồng chính.
 
-> Chỉ dùng tác vụ học. Mỗi dòng là một check thất bại.
+## 4. Baseline và phân loại lỗi
 
-| Tác vụ | Check thất bại | Nhóm lỗi (A-G) | Bằng chứng (trích ngắn từ `detail` hoặc vết) |
+| Tác vụ học | Check thất bại | Nhóm A–G | Bằng chứng từ feedback |
 |---|---|---|---|
-| code-learn | rule_type_hints | E | `RULE: every public function ... has type annotations` |
-| code-learn | rule_regression_tests | E | `RULE: add tests/test_regressions.py ... (at least 3)` |
-| code-learn | rule_changelog | E | `RULE: record each fix in CHANGELOG.md ... (at least 3 bullets)` |
-| data-learn | rule_money_in_cents | E | `RULE: money values in answer.json are integer cents` |
-| data-learn | rule_meta_block | E | `RULE: answer.json has an object meta` with source, rows_in, rows_used |
-| data-learn | rule_clean_csv | E | `RULE: write workspace/clean.csv` with specified columns, UTC timestamps, canonical regions, integer cents |
-| logs-learn | rule_service_names | E | `RULE: service names ... lower-case with '-' replaced by '_'` |
-| logs-learn | rule_sorted_errors | E | `RULE: errors is sorted by service, then by timestamp_utc` |
-| logs-learn | rule_schema_header | E | `RULE: top-level object has schema_version 2 and generated_by log-triage` |
+| code-learn | `rule_type_hints` | E | `RULE: every public function (name not starting with '_') in the package has type annotations on all parameters and on the return value.` |
+| code-learn | `rule_regression_tests` | E | `RULE: add tests/test_regressions.py with one test function per bug you fixed (at least 3); the file must pass.` |
+| code-learn | `rule_changelog` | E | `RULE: record each fix in CHANGELOG.md under the heading '## Unreleased' as a bullet '- fix(<function name>): <short description>' (at least 3 bullets).` |
+| data-learn | `rule_money_in_cents` | E | `RULE: money values in answer.json are integer cents (1606.67 USD is written 160667).` |
+| data-learn | `rule_meta_block` | E | `RULE: answer.json has an object 'meta' = {"source": <input file name>, "rows_in": <number of data rows in the input file, duplicates included>, "rows_used": <numb...` |
+| data-learn | `rule_clean_csv` | E | `RULE: write workspace/clean.csv with the header order_id,timestamp_utc,region,amount_cents; one row per distinct order with a known amount; timestamp_utc as YYYY-...` |
+| logs-learn | `rule_service_names` | E | `RULE: service names in the output are lower-case with '-' replaced by '_' (payment-service -> payment_service).` |
+| logs-learn | `rule_sorted_errors` | E | `RULE: 'errors' is sorted by service, then by timestamp_utc, ascending.` |
+| logs-learn | `rule_schema_header` | E | `RULE: the top-level object has "schema_version": 2 and "generated_by": "log-triage".` |
 
-Nhận xét: cả 9 thất bại thuộc nhóm E: tác tử hoàn thành phần việc chính nhưng bỏ sót quy ước chấm điểm bổ sung. Kết quả là bằng chứng cho việc báo cáo chi tiết các đầu ra khi kiểm tra yêu cầu; skill có thể nhắc tác tử đọc toàn bộ định dạng/README và kiểm tra các yêu cầu đầu ra phụ, nhưng không thể tự biết quy ước ẩn nếu chúng không được nêu.
+Cả 9 check thất bại đều thuộc nhóm E: quy ước tổ chức có tiền tố `rule_` và feedback `RULE:`. Baseline learning đạt 18/18 check kỹ thuật, là bằng chứng phủ định đối với việc các nhóm A–D chiếm đa số trong bộ dữ liệu này; không khẳng định mọi hành vi trung gian đều hoàn hảo. Không dùng lỗi API hoặc recursion để phân loại năng lực tác tử. Quy ước ẩn không được nêu đủ trong đề nên đọc lại đề chưa đủ; curator nhận feedback mới có cơ hội đưa chúng vào context.
 
-## 5. Điều kiện `subagents` (Phần 2.3)
+## 5. Điều kiện subagents
 
-- Các subagent đã định nghĩa: `explorer` đọc đặc tả và báo cáo, `implementer` thực hiện thay đổi và chạy kiểm tra, `reviewer` kiểm tra độc lập; vai trò tách việc khảo sát, sửa và xác minh.
-- `subagent_calls`: `code-learn` 3 (explorer, general-purpose, implementer); `data-learn` 3 (general-purpose); `logs-learn` 0. Logs là trường hợp hợp lệ: trace cho thấy tác tử chính đã trực tiếp đọc log, chuyển đổi và kiểm tra kết quả.
-- Lời giao việc cho code nêu đường dẫn, mục tiêu, edge cases và yêu cầu kiểm tra; sau báo cáo implementer, tác tử chính chạy pytest. Lời giao việc cho data truyền quy tắc dedupe, ngày/múi giờ, giá trị thiếu và câu hỏi về convention, nhưng kết quả cuối vẫn 4/8; trace không cho thấy kiểm tra toàn bộ cấu trúc đầu ra trước khi kết thúc. Với logs không có giao việc để đánh giá.
-- `subagents` đạt `code-learn` 7/10 (21 tool calls, 256,674 tokens), `data-learn` 4/8 (11 tool calls, 955,735 tokens), `logs-learn` 6/9 (11 tool calls, 93,017 tokens). Trung bình 435,142 tokens so với 159,159 của baseline; chênh lệch chủ yếu do data-learn. Điểm không tăng so với baseline ở code/logs và giảm ở data.
+Ba vai trò tự định nghĩa: explorer đọc đặc tả và báo cáo; implementer sửa và kiểm tra; reviewer kiểm tra độc lập. Description nói khi nào gọi, system prompt giới hạn phạm vi; builder nối PATHS_NOTE vào từng subagent.
 
-## 6. Self-evolving: skill do curator sinh (Phần 3)
+| Tác vụ | subagent_calls | Tên thấy trong trace | Token subagents | Token baseline |
+|---|---|---|---|---|
+| code-learn | 3 | explorer × 1, general-purpose × 1, implementer × 1 | 256,674 | 159,122 |
+| data-learn | 3 | general-purpose × 3 | 955,735 | 210,111 |
+| logs-learn | 0 | Không gọi | 93,017 | 108,246 |
+| code-eval | 1 | reviewer × 1 | 175,666 | 145,244 |
+| data-eval | 1 | general-purpose × 1 | 263,896 | 93,362 |
+| logs-eval | 2 | implementer × 1; 1 lượt không còn tên trong đoạn trace bị cắt | 401,053 | 78,332 |
 
-- Số lần chạy curator, số skill bị xóa và lý do: chạy một lần; sinh 3 skill hợp lệ; không xóa skill và không chạy lại.
+- Code learning giao khảo sát cho explorer rồi general-purpose, sau đó nhờ implementer thêm kiểm tra; tác tử chính chạy lại pytest. Code eval giao reviewer kiểm tra docstring/edge cases và chạy lại pytest sau báo cáo.
+- Data learning giao general-purpose phân tích lại cùng tệp ba lần; check kỹ thuật `north_q1_orders` vẫn sai (feedback: got 13). Lời giao việc nêu loại giá trị thiếu ra revenue nhưng chưa ràng buộc rõ số lượng chỉ gồm order được tính vào revenue; lượt giao việc sau lại khá chung. Đây là dấu hiệu có thể mất một ràng buộc khi chuyển ngữ cảnh. Data eval giao một lần, nêu dedupe, UTC, giá trị thiếu và các khóa kết quả. Đây là bằng chứng về công việc lặp lại có thể làm tăng token; không thấy các bước bên trong worker để quy toàn bộ chi phí cho một nguyên nhân.
+- Logs learning không giao việc: tác tử chính tự phân tích bằng shell. Logs eval có hai lượt, trong đó implementer được yêu cầu tạo parser và lượt sau sửa cấu trúc sau khi tác tử chính đối chiếu báo cáo. Trace cắt mỗi đoạn ở 1,500 ký tự nên tên lượt thứ hai không được giữ lại.
+- Learning mean tokens: baseline 159,159, subagents 435,142 (2.73 lần). Eval mean tokens: baseline 105,646, subagents 280,205 (2.65 lần). Điểm subagents learning thấp hơn baseline ở data; cả ba điểm eval bằng baseline.
 
-| Skill | Tổng quát hay riêng cho tác vụ học? | Đúng hay sai (nêu chỗ sai nếu có) | Độ dài, `description` và `skills_read` ở Phần 3.4 |
+Data dùng general-purpose mặc định thay vì ba vai trò mới; điều kiện subagents còn thêm SUBAGENTS_NOTE khuyến khích giao việc. Vì vậy số đo phản ánh cả prompt và hành vi chọn worker, chưa tách được tác dụng của riêng các vai trò tự định nghĩa.
+
+## 6. Self-evolving và chất lượng skill
+
+Curator chạy một lần từ baseline learning, tạo ba skill hợp lệ; không xóa, không sửa tay, không chạy lại sau khi biết eval. Mô hình và trọng số không được huấn luyện lại; tiến hóa ở lớp context qua SKILL.md. Curator loại run có role khác learn, đưa tên check/detail và đoạn cuối trace vào prompt; validator chặn tên đường dẫn không an toàn và marker eval.
+
+| Skill | Tính tổng quát | Đúng và còn thiếu gì | Độ dài và description |
 |---|---|---|---|
-| `enforce-type-hints-and-tests` | Khá riêng cho sửa mã Python; còn lặp lại quy ước CHANGELOG và regression test của tác vụ học | Đúng nhưng chưa nêu số lượng tối thiểu hay cấu trúc tiêu đề chính xác; không thấy hướng dẫn gây hại | 7 dòng; description kích hoạt khi viết/sửa Python; `skills_read=0` trong bản ghi vì GraphRecursionError ở giới hạn 60 làm mất luồng message |
-| `format-financial-data-in-cents` | Tổng quát cho dữ liệu tiền tệ, kèm nhắc metadata và dữ liệu sạch | Chuyển tiền sang integer cents là đúng; nhắc định dạng metadata còn chung, chưa nêu kiểm tra múi giờ/trùng lặp | 6 dòng; description kích hoạt khi xử lý tài chính hoặc ghi tiền ra JSON/CSV; `skills_read=3` (đọc cả ba skill) |
-| `normalize-identifiers-and-sort-logs` | Tổng quát cho log/sự kiện có tên dịch vụ và timestamp | Quy tắc chuẩn hóa và sắp xếp đúng; thiếu chi tiết định dạng timestamp và các trường đầu ra | 6 dòng; description nêu rõ log/sự kiện; `skills_read=1` |
+| enforce-type-hints-and-tests | Dùng cho sửa Python, giữ được quy trình annotate/test/changelog | Hướng dẫn type hints rõ; test/changelog thiếu tên tệp và định dạng bullet chính xác của quy ước | 7 dòng; kích hoạt khi viết/sửa Python |
+| format-financial-data-in-cents | Dùng cho phân tích và xuất tiền tệ | Chuyển sang cents phù hợp dữ liệu USD; metadata/clean dataset chỉ được nhắc chung, thiếu schema và cách làm tròn | 6 dòng; kích hoạt khi xử lý hoặc xuất giá trị tiền |
+| normalize-identifiers-and-sort-logs | Dùng cho log có tên dịch vụ và UTC timestamp | Có chuẩn hóa tên và sắp xếp; thiếu schema header và thông tin dòng nguồn | 6 dòng; kích hoạt khi xử lý log/sự kiện |
 
-Ở lần chạy skills-auto trên `data-learn`, agent đọc cả ba skill nhưng vẫn đạt 5/8 như baseline; trace cho thấy nó chỉ ghi `answer.json`, không tạo `clean.csv` hoặc metadata. Trên `logs-learn`, agent đọc skill log và đạt 8/9 so với baseline 6/9; check còn thiếu là `rule_schema_header`, điều mà skill không đề cập. Lần `code-learn` cuối cùng hit GraphRecursionError ở giới hạn 60 nên không có vết luồng chính để đo tác dụng skill.
+Phát triển: data-learn đọc 3 skill và đạt 5/8; logs-learn đọc 1 skill và đạt 8/9. Code-learn chạm GraphRecursionError ở 60: record ghi skills_read=0 và trace rỗng do harness không giữ messages khi invoke lỗi; không suy ra agent thực sự không đọc skill.
 
-## 7. Kết quả so sánh (Phần 4.3, 4.4)
+| Run chính thức | skills_read (skill khác nhau) | subagent_calls | Điểm |
+|---|---|---|---|
+| code-learn | 3 | 0 | 8/10 |
+| data-learn | 3 | 0 | 6/8 |
+| logs-learn | 3 | 0 | 6/9 |
+| code-eval | 1 | 0 | 8/11 |
+| data-eval | 3 | 0 | 6/9 |
+| logs-eval | 1 | 0 | 8/10 |
 
-`report/table.md` hiện chỉ có `baseline` và `subagents`; `skills-auto` chưa có kết quả eval do quota API. Các ô 0/9 và 0/10 của `subagents` là lỗi quota ghi vào `error`, không phải điểm tác tử.
+Đọc skill không đảm bảo thực hiện hết. Code learning chính thức đạt type hints nhưng ghi `tests/test_regression.py` thay vì `tests/test_regressions.py`, và bullet changelog bắt đầu `- Fixed` thay vì cấu trúc `- fix(<function>):`; hai check vẫn thất bại dù agent có tạo test/changelog. Data learning chính thức chuyển tiền sang cents nhưng thiếu metadata/clean.csv. Logs learning chính thức đọc ba skill nhưng vẫn trượt chuẩn hóa tên và sắp xếp; kết quả khác lần phát triển dù skill không đổi.
 
-```text
-| Task | baseline | subagents |
-|---|---|---|
-| code-learn | 7/10 | 7/10 |
-| data-learn | 5/8 | 4/8 |
-| logs-learn | 6/9 | 6/9 |
-| code-eval | 7/11 | 7/11 |
-| data-eval | 5/9 | 0/9 |
-| logs-eval | 6/10 | 0/10 |
-| **Mean score - learning tasks** | 0.66 | 0.62 |
-| **Mean score - evaluation tasks** | 0.60 | 0.21 |
-| **Mean tokens per run** | 132,402 | 269,644 |
-| **Runs that read a skill** | 0/6 | 0/6 |
-```
+## 7. Kết quả chính thức
+
+Bảng dưới đây là nội dung `report/table.md`, sinh bằng `python -m lab.compare`. Mọi run trong ba thư mục điều kiện chính có error=null và skills_modified=false; lỗi quota cũ nằm riêng trong `results/failed-attempts-20261007/`, development nằm ở `results/skills-auto-dev/` và không được lab.compare đưa vào bảng.
+
+| Task | baseline | subagents | skills-auto |
+|---|---|---|---|
+| code-learn | 7/10 | 7/10 | 8/10 |
+| data-learn | 5/8 | 4/8 | 6/8 |
+| logs-learn | 6/9 | 6/9 | 6/9 |
+| code-eval | 7/11 | 7/11 | 8/11 |
+| data-eval | 5/9 | 5/9 | 6/9 |
+| logs-eval | 6/10 | 6/10 | 8/10 |
+| **Mean score - learning tasks** | 0.66 | 0.62 | 0.74 |
+| **Mean score - evaluation tasks** | 0.60 | 0.60 | 0.73 |
+| **Mean tokens per run** | 132,402 | 357,673 | 181,528 |
+| **Runs that read a skill** | 0/6 | 0/6 | 6/6 |
+
+Thống kê từ `scripts/check_breakdown.py`:
 
 ```text
 condition     role    technical  house rules  mean tokens  read a skill
 baseline      eval     18/18         0/12         105,646      0/3
 baseline      learn    18/18         0/9          159,159      0/3
-subagents     eval      7/18         0/12          65,171      0/3
+subagents     eval     18/18         0/12         280,205      0/3
 subagents     learn    17/18         0/9          435,142      0/3
+skills-auto   eval     18/18         4/12         165,165      3/3
+skills-auto   learn    18/18         2/9          197,891      3/3
 ```
 
-Không có kết quả `skills-auto` chính thức sau freeze; các lần chạy phát triển được lưu ở `results/skills-auto-dev/`. Hai run eval của `subagents` (`data-eval`, `logs-eval`) có `GoogleRateLimitError` 429 và điểm 0 do lỗi hạ tầng. Không run nào ghi `skills_modified=true`.
-
-`verify_freeze.py` hiện in `checked 0 runs of skill conditions: OK`: nó xác nhận tag, commit giả thuyết và thư mục skill không đổi, nhưng chưa thể xác nhận bất kỳ lần chạy skills-auto chính thức nào.
+`verify_freeze.py`: `checked 6 runs of skill conditions: OK`. Mỗi run skills-auto chính thức bắt đầu sau freeze, ghi hash đúng skill đã đóng băng và không sửa skill. Tệp starter, tests, tasks và scripts không bị sửa; 32 offline tests đạt.
 
 ## 8. Phân tích
 
-> Trả lời từng câu bằng số liệu từ mục 7 và bằng chứng từ vết. Kết quả âm hoặc không có khác biệt vẫn hợp lệ nếu được phân tích tốt.
+1. **Điểm theo vai trò.** Learning: baseline 0.664; subagents 0.622; skills-auto 0.739. Eval: baseline 0.597; subagents 0.597; skills-auto 0.731. Skills-auto so với baseline thay đổi trung bình learning +0.075, eval +0.134. H1 phù hợp số liệu eval: subagents bằng baseline và tốn nhiều token hơn. Mức trung bình eval cao hơn baseline, nên phần dự đoán không tăng điểm tổng trong H2 không khớp số đo; một lần chạy mỗi tác vụ chưa đủ chứng minh cải thiện ổn định. H3 phù hợp với mean score ở ba điều kiện, nhưng skills-auto chỉ chênh learning/eval khoảng 0.008; riêng logs có eval 8/10 cao hơn learning 6/9. Khoảng chênh nhỏ hơn dao động ở các repeat, và mỗi eval thêm một quy ước, nên không suy ra quá khớp chỉ từ điểm tổng.
+2. **Kỹ thuật và quy ước.** Dùng breakdown trên để tách hai nhóm. Baseline learning đạt toàn bộ 18 check kỹ thuật và không đạt 9 convention checks; eval đạt 18 kỹ thuật và không đạt 12 convention checks. Skill đem lại lợi ích quan sát được ở một số convention cũ, như type hints và integer cents, trong khi các quy ước mới có kết quả sau:
 
-1. Trên learning, baseline đạt 0.66 trung bình còn subagents đạt 0.62. Trên eval, baseline đạt 0.60; subagents chỉ có một run hợp lệ (`code-eval` 7/11, bằng baseline), hai run còn lại lỗi quota. Chưa đủ dữ liệu để so sánh eval đầy đủ hoặc kết luận điều kiện tốt nhất.
-2. Baseline learning đạt 18/18 check kỹ thuật nhưng 0/9 check quy ước. Skills-auto learning đạt 18/18 kỹ thuật và 2/9 quy ước; mức tăng quy ước nằm ở `logs-learn`, nơi điểm tăng từ 6/9 lên 8/9. Chưa có eval skills-auto nên chưa xác định được tác dụng trên quy ước mới.
-3. Trace `logs-learn` cho thấy skill log được đọc (`skills_read=1`); lỗi giảm từ ba quy ước baseline xuống còn `rule_schema_header`, điều mà skill không hướng dẫn. Ở `data-learn`, cả ba skill được đọc nhưng điểm vẫn 5/8 và agent không tạo `clean.csv` hoặc metadata; đọc skill không đảm bảo làm theo đầy đủ.
-4. Learning-only mean tokens: baseline 159,159; subagents 435,142; skills-auto 210,531. Subagents dùng khoảng 2.7 lần baseline nhưng điểm trung bình thấp hơn; skills-auto tốn hơn baseline nhưng cải thiện một phần check quy ước trong logs. Điểm trên mỗi token chưa thể so sánh đầy đủ vì một run skills-auto lỗi và thiếu eval skills-auto; bằng chứng hiện có không ủng hộ chi phí subagents.
-5. Ba skill không chứa marker hoặc tên tệp riêng của tác vụ eval; curator chỉ nạp run có `role=learn`, validator từ chối marker eval, và skills đã đóng băng trước khi eval. Skill code vẫn gần với quy ước của tác vụ học nên nguy cơ quá khớp còn tồn tại.
-6. Learning results của skills-auto được sao lưu ở `results/skills-auto-dev/`, nhưng chưa chạy lại sau freeze vì quota cạn. Chưa tính được chênh lệch nhiễu của cùng bộ skill.
+| Eval | Quy ước mới so với learning cùng họ | Kết quả skills-auto | Nội dung skill |
+|---|---|---|---|
+| code-eval | `rule_version_bump` | Không đạt | Không được nêu trong ba skill đã đóng băng |
+| data-eval | `rule_sorted_keys_format` | Không đạt | Không được nêu trong ba skill đã đóng băng |
+| logs-eval | `rule_source_line` | Không đạt | Không được nêu trong ba skill đã đóng băng |
+
+Cả ba quy ước mới đều không đạt và không được mô tả trong skill. Những cải thiện quan sát được chuyển giao các quy ước đã có ở learning, chưa cho thấy khả năng suy ra một quy ước tổ chức mới.
+
+3. **Cơ chế từ trace.** Code-learn đọc skill trước khi sửa, viết type annotations và đạt rule_type_hints (baseline không đạt); hành vi phù hợp hướng dẫn skill. Cùng trace cho thấy tên regression file và bullet changelog không đúng chuẩn: skill thiếu chi tiết, không phải hoàn toàn không viết test/changelog. Logs-learn trượt rule_service_names và rule_sorted_errors dù đọc skill có hai hướng dẫn đó, cho thấy có cả trường hợp đọc nhưng không áp dụng. Những liên hệ này không chứng minh nhân quả với chỉ một lần chạy.
+4. **Chi phí.** Token là tổng cộng dồn qua các call, gồm worker, không phải độ dài một prompt. Thước đo thô dưới đây chia mean normalized task score cho mean tokens và nhân 100,000; không phải tỷ lệ tác vụ đạt toàn bộ.
+
+| Điều kiện | Mean score (6 tác vụ) | Mean tokens | Mean score / 100,000 tokens |
+|---|---|---|---|
+| baseline | 0.631 | 132,402 | 0.476 |
+| subagents | 0.610 | 357,673 | 0.170 |
+| skills-auto | 0.735 | 181,528 | 0.405 |
+
+`baseline` có điểm/token cao nhất theo thước đo này. Subagents không tăng điểm eval, giảm mean learning và tăng token, nên chi phí chưa được bù bằng chất lượng trong thí nghiệm này. Pacing làm thay đổi seconds; không dùng thời gian giữa ngày/điều kiện để suy ra tăng tốc.
+
+5. **Overfitting và leakage.** Skill chỉ dùng feedback learning, không chứa marker eval và không thay đổi sau freeze. Nội dung còn gần quy ước của tác vụ học và bỏ các chi tiết cần cho quy ước mới. Điểm trung bình tăng cả ở learning (+0.075) và eval (+0.134), nên không quan sát mẫu chỉ cải thiện learning. Việc thất bại cả ba quy ước mới cho thấy độ phủ hạn chế; số mẫu và các repeat chưa đủ để kết luận mức quá khớp. Không có bằng chứng trong skill cho việc chép đáp án eval.
+6. **Nhiễu khi skill giữ nguyên.** So sánh các bản ghi phát triển đã sao lưu với các run chính thức:
+
+| Tác vụ học | Development | Sau freeze | Thay đổi normalized score |
+|---|---|---|---|
+| code-learn | 7/10 (GraphRecursionError) | 8/10 | Không ước lượng: run phát triển bị lỗi |
+| data-learn | 5/8 | 6/8 | +0.125 (+12.5 điểm phần trăm) |
+| logs-learn | 8/9 | 6/9 | -0.222 (-22.2 điểm phần trăm) |
+
+Data/logs dao động ở mức một đến hai check, tương đương hoặc lớn hơn một số chênh lệch giữa điều kiện. Do đó không diễn giải mọi mức tăng như hiệu quả học. Đây là ước lượng độ biến thiên hạn chế: model/skill giữ nguyên nhưng key/ngày, pacing và recursion cap khác; code development lỗi nên không là cặp đo nhiễu hợp lệ.
 
 ## 9. Hạn chế và tính hợp lệ
 
-> Nêu ít nhất 3 hạn chế và ảnh hưởng của từng hạn chế đến kết luận (ví dụ: chỉ 3 tác vụ mỗi vai trò, mỗi cấu hình chạy một lần, nhiễu của mô hình, tác vụ do giảng viên thiết kế sẵn quy ước, chỉ một mô hình).
-
-1. Mỗi vai trò chỉ có ba tác vụ và mỗi cấu hình chạy một lần; kết quả nhạy với dữ liệu cụ thể và không cho phép ước lượng ổn định biến thiên.
-2. Chỉ dùng một mô hình Gemini; tool use, tốc độ và quota nhà cung cấp giới hạn khả năng khái quát. Hai eval subagents thất bại do quota, không phải năng lực tác tử.
-3. `recursion_limit` không đồng nhất giữa mọi lần chạy (40 hoặc 60); một số run chạm GraphRecursionError, nên so sánh điểm/token bị ảnh hưởng bởi giới hạn chạy.
-4. Chưa có eval skills-auto chính thức và chỉ một trong ba eval subagents hợp lệ; giả thuyết chính về chuyển giao skill chưa được kiểm định.
+1. Chỉ ba họ tác vụ, mỗi vai trò ba task và một official run mỗi cấu hình: không ước lượng được khoảng tin cậy hoặc khái quát rộng.
+2. Một mô hình Gemini với sampling cố định; kết luận gắn với mô hình và harness này, cần lặp hoặc đổi mô hình để kiểm tra độ bền.
+3. Recursion cap 40/60/100 và pacing khác giữa các giai đoạn; ngân sách chạy là yếu tố gây nhiễu, thời gian không so sánh trực tiếp được.
+4. Checker và quy ước ẩn do giảng viên thiết kế; phần tăng điểm có thể là học convention hơn là cải thiện năng lực lập trình/phân tích nói chung.
+5. Trace chỉ có luồng chính và bị cắt mỗi đoạn; run lỗi invoke không có trace/skill-read đáng tin. Không thấy đầy đủ chi phí và hành vi bên trong subagent.
+6. Hai cặp repeat data/logs đã dao động, code development lỗi; chưa đủ để tách nhiễu, tác động skill và khác biệt yêu cầu eval.
 
 ## 10. Kết luận
 
-Các lần chạy learning cho thấy baseline làm tốt check kỹ thuật nhưng bỏ sót nhiều quy ước đầu ra. Skill log được đọc và đi kèm mức tăng 2 check ở `logs-learn`, nhưng chưa đủ để khẳng định hiệu quả tổng quát. Subagents tăng mạnh chi phí token mà điểm learning không tăng. Chưa thể kết luận về eval skills-auto vì quota miễn phí 500 request/ngày đã hết; bước tiếp theo là chạy đủ eval bằng provider có quota rồi cập nhật bảng và phân tích.
+Baseline đã giải quyết các check kỹ thuật nhưng bỏ sót quy ước ẩn. Skills-auto có thay đổi điểm trung bình learning +0.075 và eval +0.134 so với baseline, nhưng các repeat cho thấy biến thiên đáng kể. Subagents không tăng điểm eval và tăng chi phí token. Bước tiếp theo là lặp các điều kiện với cùng cap/pacing để đo khoảng dao động và kiểm tra khả năng chuyển giao của skill.
 
-## Phụ lục
+## Phụ lục: tái lập và lịch sử
 
-- Lệnh đã chạy (theo thứ tự): `.venv/bin/pytest tests/test_01_provided.py`; `.venv/bin/pytest tests/test_02_agent.py -k subagents`; `.venv/bin/pytest tests/test_02_agent.py`; `.venv/bin/pytest tests/test_03_runner.py`; `.venv/bin/pytest tests/test_04_curator.py`; `.venv/bin/pytest`; `.venv/bin/python scripts/tour.py`; baseline learning (`data-learn`, sau đó `code-learn logs-learn`, code chạy lại); subagents learning (`--tasks learn --recursion-limit 60`); `.venv/bin/python -m lab.curator`; skills-auto learning (limit 40, sau đó code/data chạy lại ở 60); `git commit -m hypotheses`; `git commit --allow-empty -m 'freeze skills' && git tag freeze`; baseline eval (`--tasks eval --recursion-limit 60`); subagents eval (`--tasks eval --recursion-limit 60`); `.venv/bin/python scripts/verify_freeze.py`; `.venv/bin/python -m lab.compare > report/table.md`; `.venv/bin/python scripts/check_breakdown.py`.
-- Thử thách mở rộng (nếu có): hướng chọn, kết quả, nhận xét.
-- Ghi chú khác: Gemini API trả `429 RESOURCE_EXHAUSTED`, giới hạn miễn phí 500 requests/ngày; lần thử mới nhất báo còn khoảng 21 giờ đến reset (2026-10-07). Một probe ngắn đáp `OK`, nhưng lần chạy task tiếp tục bị quota từ chối. Do đó `results/skills-auto/` chưa có run chính thức; hai run subagents eval ghi lỗi hạ tầng. Các run skills-auto/code bị recursion/quota ghi trong JSON và không được diễn giải như kết quả model hợp lệ. Để tiếp tục khi provider có quota hoặc quota reset: chạy `.venv/bin/python -m lab.runner --condition subagents --tasks data-eval logs-eval --recursion-limit 60`, rồi `.venv/bin/python -m lab.runner --condition skills-auto --tasks all --recursion-limit 60`; sau đó tạo lại bảng, chạy `verify_freeze.py` và `check_breakdown.py`, cập nhật phân tích, rồi commit.
+- Đã hoàn thành phần bắt buộc 0–5; không thực hiện phần thưởng 6.
+- Hypotheses commit trước freeze; curator không được chạy lại sau eval. Skill library giữ nguyên từ tag.
+- Lỗi trước đây: code learning phát triển chạm cap 40/60; Google trả quota theo phút/ngày. Hai quota eval records được sao lưu trước khi chạy lại với key mới, không trộn vào so sánh chính.
+- Các lần baseline/subagents ban đầu dùng CLI; skills-auto development được sao lưu bằng `mv results/skills-auto results/skills-auto-dev` trước official run.
+
+Lệnh offline và tạo bảng/kiểm tra:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -e .
+.venv/bin/pytest
+.venv/bin/python scripts/tour.py
+.venv/bin/python -m lab.compare > report/table.md
+.venv/bin/python scripts/check_breakdown.py
+.venv/bin/python scripts/verify_freeze.py
+```
+
+Thứ tự run trước freeze: baseline data-learn (60), code-learn/logs-learn (40), code-learn retry (60); subagents learn (60); curator; skills-auto learn (40), code/data retry (60), code retry (60). Commit hypotheses rồi commit/tag freeze. Sau freeze: baseline eval (60), subagents eval (60), rồi tiếp tục ngày 07/10/2026 bằng lời gọi dưới đây. Các run dưới đây được gọi tuần tự, không đổi prompt hoặc skill:
+
+```python
+from langchain_core.rate_limiters import InMemoryRateLimiter
+from lab.model import make_model
+from lab.runner import run_task
+
+model = make_model()
+model.rate_limiter = InMemoryRateLimiter(
+    requests_per_second=0.2, max_bucket_size=1
+)
+for task in ("data-eval", "logs-eval"):
+    run_task(task, "subagents", model=model, recursion_limit=60)
+for task in (
+    "code-learn", "data-learn", "logs-learn",
+    "code-eval", "data-eval", "logs-eval",
+):
+    run_task(task, "skills-auto", model=model, recursion_limit=100)
+```
+
+Đặt cấu hình/key trong `.env` đã được Git ignore. Có thể truyền results_dir khác khi lặp để giữ lại run cũ. Mã curator được chỉnh expression dựng prompt để tương thích cú pháp Python 3.11; không tạo lại skill từ sửa đổi đó. Xem `git log --oneline` để đối chiếu các commit ở từng checkpoint.
+
+Tài liệu: [SkillsBench](https://arxiv.org/abs/2602.12670); [SkillEvolBench](https://arxiv.org/abs/2605.24117). Hai nghiên cứu đặt giả thuyết về hiệu quả và khả năng chuyển giao; không dùng số đo của chúng làm số liệu của lab.
